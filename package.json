@@ -1,0 +1,22 @@
+{
+  "name": "tng_js",
+  "version": "1.0.0",
+  "description": "Topical N-Gram Model implementation in pure JAVAScript",
+  "main": "tng.js",
+  "scripts": {
+    "test": "node tng.js unittest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/twilightdema/tng_js.git"
+  },
+  "author": "Chulayuth A. (Nok)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/twilightdema/tng_js/issues"
+  },
+  "homepage": "https://github.com/twilightdema/tng_js#readme",
+  "dependencies": {
+    "stem-porter": "0.0.1"
+  }
+}
