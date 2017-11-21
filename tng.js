@@ -6,8 +6,8 @@ var stem = require('stem-porter');
 // Modified to be TNG model describe at: https://people.cs.umass.edu/~mccallum/papers/tng-icdm07.pdf
 //
 var process__ = function(sentences, numberOfTopics, numberOfTermsPerTopic, languages, alphaValue, betaValue, gammaValue, deltaValue, randomSeed) {
-    // The result will consist of topics and their included terms [[{"term":"word1", "probability":0.065}, {"term":"word2", "probability":0.047}, ... ], [{"term":"word1", "probability":0.085}, {"term":"word2", "probability":0.024}, ... ]].
-    var result = [];
+    // The result will be map of every internal state of the model
+    var result = {};
     // Index-encoded array of sentences, with each row containing the indices of the words in the vocabulary.
     var documents = new Array();
     // Hash of vocabulary words and the count of how many times each word has been seen.
@@ -73,59 +73,95 @@ var process__ = function(sentences, numberOfTopics, numberOfTermsPerTopic, langu
       var psi = tng.getPsi();
       var sigma = tng.getSigma();
 
-      var text = '';
+      result.topicModel = {};
 
-      //bigram status
-      console.log('=Bigram Status=');
-      for (var k = 0; k < psi.length; k++) {
-        console.log('Topic ' + (k + 1));
-        for (var w = 0; w < psi[k].length; w++) {
-          console.log(' '+vocab[w]+' unigram: '+psi[k][w][0]+', bigram: '+psi[k][w][1]);
-        }
-      }
+      result.topicModel.hypers = {};
+      result.topicModel.hypers.W = W;
+      result.topicModel.hypers.T = T;
+      result.topicModel.hypers.vocab = vocab;
 
-      console.log('=Bigram Word Distribution=');
-      for (var k = 0; k < sigma.length; k++) {
-        console.log('Topic ' + (k + 1));
-        for (var w = 0; w < sigma[k].length; w++) {
-          for (var v = 0; v < sigma[k][w].length; v++) {
-            console.log(' '+vocab[w]+' -> '+vocab[v]+': '+sigma[k][w][v]);
+      result.topicModel.priors = {};
+      result.topicModel.priors.alpha = alpha;
+      result.topicModel.priors.beta = beta;
+      result.topicModel.priors.gamma = gamma;
+      result.topicModel.priors.delta = delta;
+
+      result.topicModel.posteriors = {};
+      result.topicModel.posteriors.theta = theta;
+      result.topicModel.posteriors.phi = phi;
+      result.topicModel.posteriors.psi = psi;
+      result.topicModel.posteriors.sigma = sigma;
+  
+      result.topicModel.counters = {};
+      result.topicModel.counters.n_zw = tng.n_zw;
+      result.topicModel.counters.m_zwv = tng.m_zwv;
+      result.topicModel.counters.p_zwk = tng.p_zwk;
+      result.topicModel.counters.q_dz = tng.q_dz;
+      result.topicModel.counters.n_z = tng.n_z;
+      result.topicModel.counters.m_zw = tng.m_zw;
+  
+      result.printReadableOutput = function() {
+
+        // TODO: May output to string instead
+        // var text = '';
+        
+        //bigram status
+        console.log('=Bigram Status=');
+        for (var k = 0; k < psi.length; k++) {
+          var things = new Array();
+          console.log('Topic ' + (k + 1));
+          for (var w = 0; w < psi[k].length; w++) {
+            things.push(""+psi[k][w][1]+"_"+psi[k][w][0] + "_" + vocab[w]);
           }
+          things.sort().reverse();          
+          for (var w = 0; w < psi[k].length; w++) {
+            var tokens = things[w].split("_");
+            console.log(' '+tokens[2]+' bigram: '+parseInt(tokens[0]*100)+'%, unigram: '+parseInt(tokens[1]*100)+'%');
+          }          
         }
-      }
-      
-      //topics
-      console.log('=Topic Distribution=');
-      var topTerms=numberOfTermsPerTopic;
-      for (var k = 0; k < phi.length; k++) {
+  
+        console.log('=Bigram Word Distribution=');
+        for (var k = 0; k < sigma.length; k++) {
+          console.log('Topic ' + (k + 1));
+          var things = new Array();
+          for (var w = 0; w < sigma[k].length; w++) {
+            for (var v = 0; v < sigma[k][w].length; v++) {
+              things.push(""+sigma[k][w][v]+"_"+vocab[w] + "_" + vocab[v]);              
+            }
+          }          
+          things.sort().reverse();          
+          for (var v = 0; v < things.length; v++) {
+            var tokens = things[v].split("_");
+            var prob = parseInt(tokens[0]*100);
+            if(prob < 2)
+              continue;
+            console.log(' '+tokens[1]+' -> '+tokens[2]+': '+prob+'%');
+          }            
+        }
+        
+        //topics
+        console.log('=Topic Distribution=');
+        var topTerms=numberOfTermsPerTopic;
+        for (var k = 0; k < phi.length; k++) {
           var things = new Array();
           console.log('Topic ' + (k + 1));
           for (var w = 0; w < phi[k].length; w++) {
-              console.log(" "+phi[k][w].toPrecision(2)+"_"+vocab[w] + "_" + vocabOrig[vocab[w]]);
-               things.push(""+phi[k][w].toPrecision(2)+"_"+vocab[w] + "_" + vocabOrig[vocab[w]]);
+            //console.log(" "+phi[k][w].toPrecision(2)+"_"+vocab[w] + "_" + vocabOrig[vocab[w]]);
+            things.push(""+phi[k][w].toPrecision(2)+"_"+vocab[w] + "_" + vocabOrig[vocab[w]]);
           }
           things.sort().reverse();
-          //console.log(things);
           if(topTerms>vocab.length) topTerms=vocab.length;
 
-          //console.log('Topic ' + (k + 1));
-          var row = [];
-          
           for (var t = 0; t < topTerms; t++) {
-              var topicTerm=things[t].split("_")[2];
-              var prob=parseInt(things[t].split("_")[0]*100);
-              if (prob<2) continue;
-              
-              //console.log('Top Term: ' + topicTerm + ' (' + prob + '%)');
-              
-              var term = {};
-              term.term = topicTerm;
-              term.probability = parseFloat(things[t].split("_")[0]);
-              row.push(term);
+            var topicTerm=things[t].split("_")[2];
+            var prob=parseInt(things[t].split("_")[0]*100);
+            if (prob<2) continue;              
+            console.log(topicTerm + ' (' + prob + '%)');              
           }
 
-          result.push(row);
-      }
+        }              
+      };
+
     }
     
     return result;
@@ -642,7 +678,11 @@ if(process.argv.length >= 3 && process.argv[2]==='unittest') {
             'เทคโนโลยี่ โลก ธรรมมะ หลุดพ้น ดับทุกข์',
         ];
         var result = process__(sentences, 3, 3, ['th']);
-        console.log(JSON.stringify(result));
-    } 
+        console.log('MODEL RAW OUTPUT: ');
+        console.log(JSON.stringify(result.topicModel));
+        console.log('');
+        console.log('MODEL INFORMATION OUTPUT: ');
+        result.printReadableOutput();
+      } 
     unitTest_TNG();
 }
