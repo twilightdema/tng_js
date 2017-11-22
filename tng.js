@@ -17,8 +17,7 @@ var process__ = function(sentences, numberOfTopics, numberOfTermsPerTopic, langu
     // Vocabulary of unique words in their original form.
     var vocabOrig = {};
     // Array of stop words
-    languages = languages; //  || Array('en'); Nok: no Default!
-
+    languages = languages || Array('en'); 
     if (sentences && sentences.length > 0) {
       var stopwords = new Array();
 
@@ -39,7 +38,7 @@ var process__ = function(sentences, numberOfTopics, numberOfTermsPerTopic, langu
           for(var wc=0;wc<words.length;wc++) {
               var w = words[wc].toLowerCase();
               if(languages.indexOf('en') != -1)
-                  var w=w.replace(/[^a-z\'A-Z0-9\u00C0-\u00ff ]+/g, '');
+                  w=w.replace(/[^a-z\'A-Z0-9\u00C0-\u00ff ]+/g, '');
               var wStemmed = stem(w);
               //console.log('wStemmed = ' +JSON.stringify(wStemmed));
 
@@ -65,6 +64,8 @@ var process__ = function(sentences, numberOfTopics, numberOfTermsPerTopic, langu
       var gamma = gammaValue || 0.5;  // bigram status distributions over topics x words
       var delta = deltaValue || .01;  // bigram second words distribution over topics x first words
 
+      documents = documents.filter((doc) => { return doc.length }); // filter empty documents
+      
       tng.configure(documents, W, 10000, 200, 100, 10, /*randomSeed*/1);
       tng.gibbs(T, alpha, beta, gamma, delta);
 
@@ -79,7 +80,8 @@ var process__ = function(sentences, numberOfTopics, numberOfTermsPerTopic, langu
       result.topicModel.hypers.W = W;
       result.topicModel.hypers.T = T;
       result.topicModel.hypers.vocab = vocab;
-
+      result.topicModel.hypers.vocabOrig = vocabOrig;
+      
       result.topicModel.priors = {};
       result.topicModel.priors.alpha = alpha;
       result.topicModel.priors.beta = beta;
@@ -96,7 +98,6 @@ var process__ = function(sentences, numberOfTopics, numberOfTermsPerTopic, langu
       result.topicModel.counters.n_zw = tng.n_zw;
       result.topicModel.counters.m_zwv = tng.m_zwv;
       result.topicModel.counters.p_zwk = tng.p_zwk;
-      result.topicModel.counters.q_dz = tng.q_dz;
       result.topicModel.counters.n_z = tng.n_z;
       result.topicModel.counters.m_zw = tng.m_zw;
   
