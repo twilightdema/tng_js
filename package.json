@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/twilightdema/tng_js#readme",
   "dependencies": {
+    "fs": "0.0.1-security",
     "stem-porter": "0.0.1"
   }
 }

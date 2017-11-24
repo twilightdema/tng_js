@@ -1,11 +1,12 @@
 var stem = require('stem-porter');
+var fs = require('fs');
 
 //
 // Based on javascript LDA implementation https://github.com/awaisathar/lda.js
 // Original code based on http://www.arbylon.net/projects/LdaGibbsSampler.java
 // Modified to be TNG model describe at: https://people.cs.umass.edu/~mccallum/papers/tng-icdm07.pdf
 //
-var process__ = function(sentences, numberOfTopics, numberOfTermsPerTopic, languages, alphaValue, betaValue, gammaValue, deltaValue, randomSeed) {
+var process__ = function(exec_type, sentences, numberOfTopics, numberOfTermsPerTopic, languages, alphaValue, betaValue, gammaValue, deltaValue, randomSeed, dict_map, rev_dict_map) {
     // The result will be map of every internal state of the model
     var result = {};
     // Index-encoded array of sentences, with each row containing the indices of the words in the vocabulary.
@@ -19,41 +20,50 @@ var process__ = function(sentences, numberOfTopics, numberOfTermsPerTopic, langu
     // Array of stop words
     languages = languages || Array('en'); 
     if (sentences && sentences.length > 0) {
-      var stopwords = new Array();
 
-      languages.forEach(function(value) {
-          var stopwordsLang = require('./stopwords_' + value + ".js");
-          stopwords = stopwords.concat(stopwordsLang.stop_words);
-      });
+      if(exec_type === 'map_provided') {
+        documents = sentences;
+        for(var word in dict_map) {
+            vocab.push(word);
+            vocabOrig[word] = word;
+        }
+      } else {       
+        var stopwords = new Array();
+
+        languages.forEach(function(value) {
+            var stopwordsLang = require('./stopwords_' + value + ".js");
+            stopwords = stopwords.concat(stopwordsLang.stop_words);
+        });
 
 
-      for(var i=0;i<sentences.length;i++) {
-          if (sentences[i]=="") continue;
-          documents[i] = new Array();
+        for(var i=0;i<sentences.length;i++) {
+            if (sentences[i]=="") continue;
+            documents[i] = new Array();
 
-          var words = sentences[i].split(/[\s,\"]+/);
-          console.log('words = ' +JSON.stringify(words));
+            var words = sentences[i].split(/[\s,\"]+/);
+            console.log('words = ' +JSON.stringify(words));
 
-          if(!words) continue;
-          for(var wc=0;wc<words.length;wc++) {
-              var w = words[wc].toLowerCase();
-              if(languages.indexOf('en') != -1)
-                  w=w.replace(/[^a-z\'A-Z0-9\u00C0-\u00ff ]+/g, '');
-              var wStemmed = stem(w);
-              //console.log('wStemmed = ' +JSON.stringify(wStemmed));
+            if(!words) continue;
+            for(var wc=0;wc<words.length;wc++) {
+                var w = words[wc].toLowerCase();
+                if(languages.indexOf('en') != -1)
+                    w=w.replace(/[^a-z\'A-Z0-9\u00C0-\u00ff ]+/g, '');
+                var wStemmed = stem(w);
+                //console.log('wStemmed = ' +JSON.stringify(wStemmed));
 
-              if (w=="" || !wStemmed || w.length==1 || stopwords.indexOf(w.replace("'", "")) > -1 || stopwords.indexOf(wStemmed) > -1 || w.indexOf("http")==0) continue;
-              if (f[wStemmed]) { 
-                  f[wStemmed]=f[wStemmed]+1;
-              } 
-              else if(wStemmed) { 
-                  f[wStemmed]=1; 
-                  vocab.push(wStemmed);
-                  vocabOrig[wStemmed] = w;
-              };
-              
-              documents[i].push(vocab.indexOf(wStemmed));
-          }
+                if (w=="" || !wStemmed || w.length==1 || stopwords.indexOf(w.replace("'", "")) > -1 || stopwords.indexOf(wStemmed) > -1 || w.indexOf("http")==0) continue;
+                if (f[wStemmed]) { 
+                    f[wStemmed]=f[wStemmed]+1;
+                } 
+                else if(wStemmed) { 
+                    f[wStemmed]=1; 
+                    vocab.push(wStemmed);
+                    vocabOrig[wStemmed] = w;
+                };
+                
+                documents[i].push(vocab.indexOf(wStemmed));
+            }
+        }
       }
           
       var W = vocab.length;
@@ -661,6 +671,7 @@ module.exports = process__;
 if(process.argv.length >= 3 && process.argv[2]==='unittest') {
     // Unit testing function
     function unitTest_TNG() {
+      /*
         var sentences = [
             'คอมพิวเตอร์ เทคโนโลยี่ โลก แสดงผล',
             'โลก ต้นไม้ ธรรมชาติ ลำธาร เทคโนโลยี่ ทำลาย',
@@ -678,12 +689,20 @@ if(process.argv.length >= 3 && process.argv[2]==='unittest') {
             'โลก ต้นไม้ ธรรมชาติ ลำธาร เทคโนโลยี่ ทำลาย',
             'เทคโนโลยี่ โลก ธรรมมะ หลุดพ้น ดับทุกข์',
         ];
-        var result = process__(sentences, 3, 3, ['th']);
+      */
+
+        var doc_map = require('./coded_training_data.json');
+        var dict_map = require('./out_dict_map.json');
+        var rev_dict_map = require('./out_dict_rev_map.json');
+                
+        var result = process__('map_provided', doc_map, 4, 10, ['th'], 0.1, 0.01, 0.5, 0.01, 100, dict_map, rev_dict_map);
         console.log('MODEL RAW OUTPUT: ');
         console.log(JSON.stringify(result.topicModel));
         console.log('');
         console.log('MODEL INFORMATION OUTPUT: ');
         result.printReadableOutput();
+
+        fs.writeFileSync('model_output.json', JSON.stringify(result, null, 4));           
       } 
     unitTest_TNG();
 }
