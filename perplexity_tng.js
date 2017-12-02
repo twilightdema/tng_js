@@ -174,39 +174,63 @@ var tng_perplexity = new function() {
         
         var logNumParticles = Math.log(this.ITERATIONS);
         var totalLogLikelihood = 0;
+        var tokenCount = 0;
 
         for(var m = 0;m < this.documents.length;m++) {
           console.log('Processing doc #'+m);
+          tokenCount += this.documents[m].length;
+
+          var str = this.documents[m].reduce((acc, val)=>{
+            return acc + ' ' + this.vocab[val];
+          }, '');
+          console.log(str);
+          
           var docLogLikelihood = 0;
           var particleProbabilities = new Array(this.ITERATIONS);
           for(var particle=0; particle<this.ITERATIONS; particle++) {
             console.log(' Processing particle #'+particle);
             particleProbabilities[particle] = 
               this.left_to_right_sampling(m);
-          }          
+          }     
+          
+          var avgWordProbabilities = makeArray(this.documents[m].length);          
           console.log('Finished all particle, averaing result of size = '+particleProbabilities[0].length);
           for(var position=0; position<particleProbabilities[0].length; position++) {
             var sum = 0;
             for(var particle=0; particle<this.ITERATIONS; particle++) {
               sum += particleProbabilities[particle][position];
             }
-            console.log('prob sum = '+sum);
+            avgWordProbabilities[position] = sum / this.ITERATIONS;            
+            //console.log('prob sum = '+sum);
             if(sum > 0.0) {
               var logProb = Math.log(sum) - logNumParticles;
               docLogLikelihood += logProb;
               //console.log(':: w='+this.documents[m][position]+', prob='+logProb);
             }
           }          
+
+          str = this.documents[m].reduce((acc, val, index)=>{
+            return acc + '' + this.vocab[val] + '('+(avgWordProbabilities[index]*100).toFixed(2)+'%)';
+          }, '');
+          console.log('AVG Probs: ' + str);
+          
           totalLogLikelihood += docLogLikelihood;
           console.log(' - Document Log Likelihood = '+docLogLikelihood);          
         }
-        return totalLogLikelihood;
+
+        if(tokenCount > 0) {
+          return Math.exp(-totalLogLikelihood / tokenCount);
+        } else {
+          return 0;
+        } // if
     };
 
     this.left_to_right_sampling = function(m) {
       var docLength = this.documents[m].length;
       var wordProbabilities = makeArray(docLength);
-
+      var topicAssignments = makeArray(docLength);
+      var bigramAssignments = makeArray(docLength);
+      
       // Create copy of stat counters for each iteration to a document
       // so it gets cleanup after evaluate each document.
       var z = makeArray(docLength);
@@ -240,19 +264,32 @@ var tng_perplexity = new function() {
           //console.log('w = '+this.documents[m][position]);
           if(this.documents[m][position] == -1)
             continue;
-          //console.log('re-sample on position: '+position);
-          console.log('re-sample on position: '+position+', word='+this.vocab[this.documents[m][position]]);          
-          this.sampleFullConditional(m, position, true,
+          //console.log('re-sample on position: '+position+', word='+this.vocab[this.documents[m][position]]);          
+          var sampling = this.sampleFullConditional(m, position, true,
             n_zw,m_zwv,p_zwk,q_dz,n_z,m_zw,N_d,z,x
-          );      
+          );  
+          topicAssignments[position] = sampling.topic;                   
+          bigramAssignments[position] = sampling.bigramStatus;                   
         }
         if(this.documents[m][limit] == -1)
           continue;
-        console.log('sample on position: '+limit+', word='+this.vocab[this.documents[m][limit]]);
-        var prob = this.sampleFullConditional(m, limit, false,
+        //console.log('sample on position: '+limit+', word='+this.vocab[this.documents[m][limit]]);
+        var sampling = this.sampleFullConditional(m, limit, false,
           n_zw,m_zwv,p_zwk,q_dz,n_z,m_zw,N_d,z,x
         );
-        wordProbabilities[limit] += prob;           
+        topicAssignments[limit] = sampling.topic;         
+        bigramAssignments[limit] = sampling.bigramStatus;                   
+        
+        // console.log(' : Sampling:');
+        var str = this.documents[m].reduce((acc, val, index)=>{
+          if(index <= limit)
+            return acc + ' ' + this.vocab[val] + '('+((bigramAssignments[index]==0)?topicAssignments[index]:'-')+')';
+          else
+            return acc;
+        }, '');
+        console.log(' : ' + str + '[PROB = ' + (sampling.prob*100).toFixed(2) +'%]');
+        
+        wordProbabilities[limit] += sampling.prob;           
       }
       return wordProbabilities;
     };
@@ -400,7 +437,7 @@ var tng_perplexity = new function() {
         var new_status = null;
         for(var _z=0;_z<this.T;_z++) {
           for(var _x=0;_x<2;_x++) {
-            console.log('[z][x]='+_z+',',x+': p='+P_zx[_z][_x]);          
+            //console.log('[z][x]='+_z+',',x+': p='+P_zx[_z][_x]);          
             if(u < P_zx[_z][_x]) {
               new_topic = _z;
               new_status = _x;
@@ -421,7 +458,7 @@ var tng_perplexity = new function() {
           n_zw[topic][word]++;
           n_z[topic]++;        
         } else {
-          console.log('topic='+topic+',prevw='+prev_word+',w='+word);
+          //console.log('topic='+topic+',prevw='+prev_word+',w='+word);
           m_zwv[topic][prev_word][word]++;
           m_zw[topic][prev_word]++;
         } // if
@@ -437,7 +474,7 @@ var tng_perplexity = new function() {
         //console.log('set - q_dz['+m+']['+topic+'] '+(q_dz[m][topic]-1)+' => '+q_dz[m][topic]);            
         
         N_d[m]++;
-        return wordProbabilities;
+        return {topic: topic, prob: wordProbabilities, bigramStatus: status};
     }
     
     this.getRandom = function() {
