@@ -235,6 +235,10 @@ var tng_perplexity = new function() {
       // so it gets cleanup after evaluate each document.
       var z = makeArray(docLength);
       var x = makeArray(docLength);
+      for(var i=0;i<docLength;i++) {
+        z[i] = null;
+        x[i] = null;
+      } // for i
 
       // .. temporary variable to speedup Gibbs sampling
       var n_zw = make2DArray(this.T,this.W); // # of time word w is assigned to topic z as unigram
@@ -264,6 +268,7 @@ var tng_perplexity = new function() {
           //console.log('w = '+this.documents[m][position]);
           if(this.documents[m][position] == -1)
             continue;
+          //console.log('x = '+JSON.stringify(x));
           //console.log('re-sample on position: '+position+', word='+this.vocab[this.documents[m][position]]);          
           var sampling = this.sampleFullConditional(m, position, true,
             n_zw,m_zwv,p_zwk,q_dz,n_z,m_zw,N_d,z,x
@@ -293,7 +298,7 @@ var tng_perplexity = new function() {
       }
       return wordProbabilities;
     };
-    
+
     this.sampleFullConditional = function(m,n, is_resampling,
         n_zw,m_zwv,p_zwk,q_dz,n_z,m_zw,N_d,z,x
       ) {
@@ -310,9 +315,15 @@ var tng_perplexity = new function() {
           prev_word = this.documents[m][n-1];
           prev_topic = z[n-1];        
         }
-        if(n < N_d[d] - 1) {
-          next_status = this.x_d_i[d][n+1];
+        if(n < N_d[m] - 1) {
+          next_status = x[n+1]; //this.x_d_i[d][n+1];          
         }
+
+        //console.log(((is_resampling)?'RESAMPLING':'SAMPLING')+' doc['+m+']['+n+']: '+
+        //  ((prev_word==null)?'[]':('['+this.vocab[prev_word]+']'))+
+        //  this.vocab[word]+
+        //  ((next_status==null)?'[]':('['+this.vocab[this.documents[m][n+1]]+']'))
+        //);
       
         if(is_resampling) {
           topic = z[n];
@@ -327,11 +338,13 @@ var tng_perplexity = new function() {
           } // if
           if(prev_topic != null) {
             p_zwk[prev_topic][prev_word][status]--;
-            //console.log(' - resamp: p_zwk['+prev_topic+','+prev_word+','+status+']: '
+            //console.log(' - resamp(1): p_zwk['+prev_topic+','+prev_word+','+status+']: '
             //  +(p_zwk[prev_topic][prev_word][status]+1)+' => '+(p_zwk[prev_topic][prev_word][status]) );
           } // if
           if(next_status != null) {
             p_zwk[topic][word][next_status]--;
+            //console.log(' - resamp(2): p_zwk['+topic+','+word+','+next_status+']: '
+            //  +(p_zwk[topic][word][next_status]+1)+' => '+(p_zwk[topic][word][next_status]) );          
           }
           q_dz[m][topic]--;
           //console.log('resamp - q_dz['+m+']['+topic+'] '+(q_dz[m][topic]+1)+' => '+q_dz[m][topic]);
@@ -354,11 +367,13 @@ var tng_perplexity = new function() {
             } // if
             if(prev_topic != null) {
               p_zwk[prev_topic][prev_word][_x]++;
-              //console.log('  - try: p_zwk['+prev_topic+','+prev_word+','+_x+']: '
+              //console.log('  - try(1): p_zwk['+prev_topic+','+prev_word+','+_x+']: '
               //  +(p_zwk[prev_topic][prev_word][_x]-1)+' => '+(p_zwk[prev_topic][prev_word][_x]) );
             } // if
             if(next_status != null) {
               p_zwk[_z][word][next_status]++;
+              //console.log('  - try(2): p_zwk['+_z+','+word+','+next_status+']: '
+              //  +(p_zwk[_z][word][next_status]-1)+' => '+(p_zwk[_z][word][next_status]) );
             }              
             q_dz[m][_z]++;
             //console.log('try - q_dz['+m+']['+_z+'] '+(q_dz[m][_z]-1)+' => '+q_dz[m][_z]);
@@ -374,7 +389,12 @@ var tng_perplexity = new function() {
             */
               
             var first_term = 0.0;
+            //console.log('  Denom1  = '+((n+1) + this.T * this.alpha - 1));
             if(prev_topic != null) {
+              //console.log('  this.gamma = ' + this.gamma);
+              //console.log('  p_zwk[prev_topic][prev_word][0] = ' + p_zwk[prev_topic][prev_word][0]);
+              //console.log('  p_zwk[prev_topic][prev_word][1] = ' + p_zwk[prev_topic][prev_word][1]);
+              //console.log('  Denom2  = '+(2 * this.gamma + p_zwk[prev_topic][prev_word][0] + p_zwk[prev_topic][prev_word][1] - 1));
               first_term = (this.gamma + p_zwk[prev_topic][prev_word][_x] - 1)
                 * (this.alpha + q_dz[m][_z] - 1) / (
                 (2 * this.gamma + p_zwk[prev_topic][prev_word][0] + p_zwk[prev_topic][prev_word][1] - 1)
@@ -421,12 +441,14 @@ var tng_perplexity = new function() {
             } // if
             if(prev_topic != null) {
               p_zwk[prev_topic][prev_word][_x]--;
-              //console.log('  - roll: p_zwk['+prev_topic+','+prev_word+','+_x+']: '
+              //console.log('  - roll(1): p_zwk['+prev_topic+','+prev_word+','+_x+']: '
               //  +(p_zwk[prev_topic][prev_word][_x]+1)+' => '+(p_zwk[prev_topic][prev_word][_x]) );
             } // if
             if(next_status != null) {
               p_zwk[_z][word][next_status]--;
-            }
+              //console.log('  - roll(2): p_zwk['+_z+','+word+','+next_status+']: '
+              //  +(p_zwk[_z][word][next_status]+1)+' => '+(p_zwk[_z][word][next_status]) );
+          }
             q_dz[m][_z]--;            
             //console.log('roll - q_dz['+m+']['+_z+'] '+(q_dz[m][_z]+1)+' => '+q_dz[m][_z]);            
           } // for x
@@ -441,7 +463,7 @@ var tng_perplexity = new function() {
           for(var _x=0;_x<2;_x++) {          
             sum = sum + P_zx[_z][_x];
             P_zx[_z][_x] = sum;
-            //console.log(' - acc P_zx['+z+']['+x+'] = '+P_zx[z][x]);
+            //console.log(' - acc P_zx['+_z+']['+_x+'] = '+P_zx[_z][_x]);
           } // for x
         } // for z
         var u = this.getRandom() * sum;
@@ -476,12 +498,14 @@ var tng_perplexity = new function() {
         } // if
         if(prev_topic != null) {
           p_zwk[prev_topic][prev_word][status]++;
-          //console.log('  - set: p_zwk['+prev_topic+','+prev_word+','+status+']: '
+          //console.log('  - set(1): p_zwk['+prev_topic+','+prev_word+','+status+']: '
           //  +(p_zwk[prev_topic][prev_word][status]-1)+' => '+(p_zwk[prev_topic][prev_word][status]) );
         } // if
         if(next_status != null) {
           p_zwk[topic][word][next_status]++;
-        }
+          //console.log('  - set(2): p_zwk['+topic+','+word+','+next_status+']: '
+          //  +(p_zwk[topic][word][next_status]-1)+' => '+(p_zwk[topic][word][next_status]) );
+      }
         q_dz[m][topic]++;        
         //console.log('set - q_dz['+m+']['+topic+'] '+(q_dz[m][topic]-1)+' => '+q_dz[m][topic]);            
         
