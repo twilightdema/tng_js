@@ -376,13 +376,22 @@ var tng_perplexity = new function() {
             var first_term = 0.0;
             if(prev_topic != null) {
               first_term = (this.gamma + p_zwk[prev_topic][prev_word][_x] - 1)
-                * (this.alpha + q_dz[m][_z] - 1);
+                * (this.alpha + q_dz[m][_z] - 1) / (
+                (2 * this.gamma + p_zwk[prev_topic][prev_word][0] + p_zwk[prev_topic][prev_word][1] - 1)
+                * ((n+1) + this.T * this.alpha - 1)
+                );
               //console.log('ft[0]: '+first_term+', this.p_zwk[prev_topic][prev_word][x] = '+this.p_zwk[prev_topic][prev_word][x]);
             } else {
               first_term = (this.gamma)
-                * (this.alpha + q_dz[m][_z] - 1);
+                * (this.alpha + q_dz[m][_z] - 1) / (
+                (this.gamma)
+                * ((n+1) + this.T * this.alpha - 1)
+                );
               //console.log('ft[1]: '+first_term);
             }
+            //if(!is_resampling) {
+            //  console.log('  First Term  = '+first_term);
+            //}
   
             var second_term = null;
             if(_x == 0) {
@@ -394,7 +403,10 @@ var tng_perplexity = new function() {
                 (this.delta + m_zwv[_z][prev_word][word] - 1)
                 / (this.W * this.delta + m_zw[_z][prev_word] - 1);
             }
-  
+            //if(!is_resampling) {
+            //  console.log('  Second Term  = '+second_term);
+            //}
+
             //console.log('first_term = '+first_term+', second_term = '+second_term);
             P_zx[_z][_x] = first_term * second_term;
             wordProbabilities += P_zx[_z][_x];

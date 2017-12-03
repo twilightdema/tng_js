@@ -425,11 +425,17 @@ var tng = new function() {
           var first_term = 0.0;
           if(prev_topic != null) {
             first_term = (this.gamma + this.p_zwk[prev_topic][prev_word][x] - 1)
-              * (this.alpha + this.q_dz[document][z] - 1);
+              * (this.alpha + this.q_dz[document][z] - 1) / (
+              (2 * this.gamma + this.p_zwk[prev_topic][prev_word][0] + this.p_zwk[prev_topic][prev_word][1] - 1)
+              * (this.documents[document].length + this.T * this.alpha - 1)
+              );
             //console.log('ft[0]: '+first_term+', this.p_zwk[prev_topic][prev_word][x] = '+this.p_zwk[prev_topic][prev_word][x]);
           } else {
             first_term = (this.gamma)
-              * (this.alpha + this.q_dz[document][z] - 1);
+              * (this.alpha + this.q_dz[document][z] - 1) / (
+              (this.gamma)
+              * (this.documents[document].length + this.T * this.alpha - 1)
+              );;
             //console.log('ft[1]: '+first_term);
           }
 
