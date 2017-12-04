@@ -64,7 +64,7 @@ var process = function(model, sentences, languages, alphaValue, randomSeed) {
           } 
         else if(wStemmed) { 
           // We use -1 to indicate verbatim that is not existing in our model dictionary.
-          documents[i].push(-1);
+          // documents[i].push(-1);
         };            
       }
     }
@@ -244,6 +244,8 @@ var tng_prediction = new function() {
       var sampling = this.predictNextWord(m,
         n_zw,m_zwv,p_zwk,q_dz,n_z,m_zw,N_d,z,x
       );
+      sampling.topics = topicAssignments;
+      sampling.bigrams = bigramAssignments;
       
       // console.log(' : Sampling:');
       var str = this.documents[m].reduce((acc, val, index)=>{
@@ -269,8 +271,14 @@ var tng_prediction = new function() {
 
         word = this.documents[m][n];
         if(n > 0) {
-          prev_word = this.documents[m][n-1];
-          prev_topic = z[n-1];        
+          // Loop until found available previous
+          for(var i=n-1;i>=0;i--) {
+            if(this.documents[m][i] != -1) {
+              prev_word = this.documents[m][i];
+              prev_topic = z[i];        
+              break;                
+            }
+          }          
         }
         if(n < N_d[m] - 1) {
           next_status = x[n+1]; //this.x_d_i[d][n+1];          
@@ -315,7 +323,7 @@ var tng_prediction = new function() {
         for(var _z=0;_z<this.T;_z++) {
           for(var _x=0;_x<2;_x++) {         
             // Skip case of bigram status for first token in document because it is invalid
-            if(n == 0 && _x == 1)
+            if((n == 0 && _x == 1) || (prev_word == null && _x == 1))
               continue;
             // increase counter for topic, status of current word in which calculation based on.
             if(_x == 0) {
@@ -484,8 +492,14 @@ var tng_prediction = new function() {
       var next_status = null;
 
       if(this.documents[m].length > 0) {
-        prev_word = this.documents[m][this.documents[m].length-1];
-        prev_topic = z[this.documents[m].length-1];        
+        // Loop until found available previous
+        for(var i=this.documents[m].length-1;i>=0;i--) {
+          if(this.documents[m][i] != -1) {
+            prev_word = this.documents[m][i];
+            prev_topic = z[i];        
+            break;                
+          }
+        }
       }
 
       //console.log(((is_resampling)?'RESAMPLING':'SAMPLING')+' doc['+m+']['+n+']: '+
@@ -500,7 +514,7 @@ var tng_prediction = new function() {
         for(var _x=0;_x<2;_x++) {     
           for (var w = 0; w < this.W; w++) {    
             // Skip case of bigram status for first token in document because it is invalid
-            if(this.documents[m].length == 0 && _x == 1)
+            if((this.documents[m].length == 0 && _x == 1) || ( prev_word == null && _x == 1))
               continue;
             // increase counter for topic, status of current word in which calculation based on.
             if(_x == 0) {

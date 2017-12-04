@@ -64,7 +64,7 @@ var process = function(model, sentences, languages, alphaValue, randomSeed) {
           } 
         else if(wStemmed) { 
           // We use -1 to indicate verbatim that is not existing in our model dictionary.
-          documents[i].push(-1);
+          // documents[i].push(-1);
         };            
       }
     }
